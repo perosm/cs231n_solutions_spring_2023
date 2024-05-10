@@ -15,8 +15,8 @@
 - [Q5](https://github.com/perosm/cs231n-solutions-spring-2023/blob/master/assignment2/PyTorch.ipynb): PyTorch on CIFAR-10
 
 ### Assignment 3 (in progress)
-- Q1: Image Captioning with Vanilla RNNs (30 points)
-- Q2: Image Captioning with Transformers (25 points)
-- Q3: Generative Adversarial Networks (15 points)
-- Q4: Self-Supervised Learning for Image Classification (20 points)
-- Extra Credit: Image Captioning with LSTMs (5 points)
+- [Q1](https://github.com/perosm/cs231n-solutions-spring-2023/blob/master/assignment3/RNN_Captioning.ipynb): Image Captioning with Vanilla RNNs
+- Q2: Image Captioning with Transformers
+- Q3: Generative Adversarial Networks
+- Q4: Self-Supervised Learning for Image Classification
+- Extra Credit: Image Captioning with LSTMs

@@ -73,7 +73,10 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    xh = x @ Wx # (N, D) @ (D, H) = (N, H); input-to-hidden
+    next_h = np.tanh(prev_h @ Wh + xh + b) # (N, H) @ (H, H) = (N, H); hidden-to-hidden
+    
+    cache = (x, xh, prev_h, Wx, Wh, b, next_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -104,8 +107,13 @@ def rnn_step_backward(dnext_h, cache):
     # of the output value from tanh.                                             #
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    
+    x, xh, prev_h, Wx, Wh, b, next_h = cache
+    dx = dnext_h * (1 - next_h**2) @ Wx.T # (N, H) @ (D, H).T = (N, D)
+    dprev_h = (Wh @ (dnext_h * (1 - next_h**2)).T).T # (H, H) @ (N, H).T = (N, H)
+    dWx = x.T @ (dnext_h * (1 - next_h**2)) # (N, D) @ (N, H) = (D, H)
+    dWh = prev_h.T @ (dnext_h * (1 - next_h**2)) # (N, H).T @ (N, H) = (H, H)
+    db = np.sum(dnext_h * (1 - next_h**2), axis=0) # np.sum((N, H) * (N, H), axis=0) = (H,)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -139,8 +147,17 @@ def rnn_forward(x, h0, Wx, Wh, b):
     # above. You can use a for loop to help compute the forward pass.            #
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    N, T, _ = x.shape
+    _, H = h0.shape
 
-    pass
+    h = np.zeros((N, T, H))
+    cache = [None] * T 
+    for i in range(T):
+      if i == 0:
+        h[:, i, :], cache[i] = rnn_step_forward(x[:, i, :], h0, Wx, Wh, b)
+      else:
+        h[:, i, :], cache[i] = rnn_step_forward(x[:, i, :], h[:, i-1, :], Wx, Wh, b)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -175,7 +192,20 @@ def rnn_backward(dh, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, H = dh.shape
+    x = cache[0][0]
+    _, D = x.shape
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, T, H))
+
+    for i in range(T-1, -1, -1):
+      if i == T-1:
+        dx[:, i, :], dh0, dWx, dWh, db = rnn_step_backward(dh[:, i, :], cache[i])
+      else:
+        dx[:, i, :], dh0, tdWx, tdWh, tdb = rnn_step_backward(dh[:, i, :] + dh0, cache[i])
+        dWx += tdWx
+        dWh += tdWh
+        db += tdb
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -208,8 +238,14 @@ def word_embedding_forward(x, W):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
-
+    # W - preslikava rijec (redni broj rijeci u vokabularu) u vektor brojeva
+    # x[i] - indeksi koji sacinjavaju i-tu recenicu (sekvencu)
+    if isinstance (x, int) or isinstance(x, np.int64):
+      out = W[x, :]
+    else:
+      out = W[x[np.arange(0, x.shape[0])], :]
+    cache = (x, W)
+    
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -242,8 +278,11 @@ def word_embedding_backward(dout, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
-
+    x, W = cache
+    dW = np.zeros((W.shape))
+    for i in range(x.shape[0]):
+      np.add.at(dW, x[i], dout[i]) # za i-tu rijec sekvence akumuliramo gradijente
+    
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
