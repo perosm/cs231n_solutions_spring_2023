@@ -38,7 +38,12 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        for i in range(max_len):
+          for j in range(embed_dim):
+            if j % 2 == 0:
+              pe[0, i, j] = math.sin(i * 10000**(-j/embed_dim))
+            else:
+              pe[0, i, j] = math.cos(i * 10000**(-(j-1)/embed_dim))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -62,16 +67,18 @@ class PositionalEncoding(nn.Module):
         """
         N, S, D = x.shape
         # Create a placeholder, to be overwritten by your code below.
-        output = torch.empty((N, S, D))
+        output = torch.empty((N, S, D), dtype=x.dtype)
         ############################################################################
         # TODO: Index into your array of positional encodings, and add the         #
         # appropriate ones to the input sequence. Don't forget to apply dropout    #
         # afterward. This should only take a few lines of code.                    #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
-
+        
+        #for k in range(N):
+        #  output[k] = x[k] + self.pe[0, k:k+S] # sin, cos
+        output = x + self.pe[0, 0:S]
+        output = self.dropout(output)
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -165,12 +172,39 @@ class MultiHeadAttention(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        # 1)
+        H = self.n_head
 
+        Q = self.query(query)
+        K = self.key(key)
+        V = self.value(value)
+        
+        Q = Q.reshape((N, S, H, E // H)) # (N, S, E) -> (N, S, H, E/H) 
+        K = K.reshape((N, T, H, E // H)) # (N, T, E) -> (N, T, H, E/H) 
+        V = V.reshape((N, T, H, E // H)) # (N, T, E) -> (N, T, H, E/H) 
+        
+        # 2)
+        Q = Q.swapaxes(1, 2) # (N, S, H, E/H) -> (N, H, S, E/H)
+        K = K.swapaxes(1, 2) # (N, T, H, E/H) -> (N, H, T, E/H)
+        # (N, H, S, E/H) @ (N, H, E/H, T) = (N, H, T, T)
+        scores = torch.matmul(Q, K.transpose(2, 3)) / math.sqrt(self.head_dim)
+        
+        # 3)
+        if attn_mask is not None:
+          scores = scores.masked_fill(attn_mask==False, -1e10)
+          
+        softmax = F.softmax(scores, dim=-1)
+        V = V.swapaxes(1, 2) # (N, H, T, E/H)
+        # (N, H, T, T) @ (N, H, T, E/H) = (N, H, T, E/H)
+        Y = self.attn_drop(softmax) @ V
+        # (N, T, H, E/H)
+        output = self.proj(Y.swapaxes(1, 2).reshape((N, S, E)))
+        
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
         return output
+
 
 

@@ -90,7 +90,17 @@ class CaptioningTransformer(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        #1)
+        embedded_captions = self.embedding(captions) # (N, T, emb_size)
+        embedded_captions_pe = self.positional_encoding(embedded_captions)
+        projected_features = self.visual_projection(features) # (N, emb_size)
+
+        #2) https://discuss.pytorch.org/t/understanding-mask-size-in-transformer-example/147655/2
+        tgt_mask = torch.tril(torch.ones(T, T, dtype=embedded_captions_pe.dtype))
+        
+        #3) https://pytorch.org/docs/stable/generated/torch.nn.TransformerDecoder.html
+        out = self.transformer(tgt=embedded_captions_pe, memory=projected_features.unsqueeze(1), tgt_mask=tgt_mask)
+        scores = self.output(out)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -219,3 +229,4 @@ class TransformerDecoder(nn.Module):
             output = mod(output, memory, tgt_mask=tgt_mask)
 
         return output
+
