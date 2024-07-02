@@ -16,7 +16,7 @@
 
 ### Assignment 3 (in progress)
 - [Q1](https://github.com/perosm/cs231n-solutions-spring-2023/blob/master/assignment3/RNN_Captioning.ipynb): Image Captioning with Vanilla RNNs
-- Q2: Image Captioning with Transformers
+- [Q2](https://github.com/perosm/cs231n_solutions_spring_2023/blob/master/assignment3/Transformer_Captioning.ipynb): Image Captioning with Transformers
 - Q3: Generative Adversarial Networks
 - Q4: Self-Supervised Learning for Image Classification
 - Extra Credit: Image Captioning with LSTMs
