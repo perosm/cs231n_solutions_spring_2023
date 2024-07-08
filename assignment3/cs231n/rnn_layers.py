@@ -330,7 +330,17 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    a = x @ Wx + prev_h @ Wh + b # (N, D) @ (D, 4H) + (N, H) @ (H, 4H) = (N, 4H)
+    _, H4 = a.shape
+    i = sigmoid(a[:, 0:H4 // 4]) # input_gate
+    f = sigmoid(a[:, 1*(H4 // 4):(1*(H4 // 4) + H4 // 4)]) # forget_gate
+    o = sigmoid(a[:, 2*(H4 // 4):(2*(H4 // 4) + H4 // 4)]) # output_gate
+    g = np.tanh(a[:, 3*(H4 // 4):(3*(H4 // 4) + H4 // 4)]) # block_input
+    
+    next_c = f * prev_c + i * g # cell_state
+    next_h = o * np.tanh(next_c) # next hidden state
+    
+    cache = (x, prev_h, prev_c, Wx, Wh, i, f, o, g, next_c, next_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -364,9 +374,27 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     # the output value from the nonlinearity.                                   #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    x, prev_h, prev_c, Wx, Wh, i, f, o, g, next_c, next_h = cache
+    N, H = dnext_h.shape
+    _, D = x.shape
 
-    pass
+    dnext_h_dnext_c = dnext_c + dnext_h * o * (1 - np.tanh(next_c)**2)
 
+    da_i = dnext_h_dnext_c * i * (1 - i) * g # 0
+    da_f = dnext_h_dnext_c * f * (1 - f) * prev_c # 1
+    da_o = dnext_h * o * (1 - o) * np.tanh(next_c) # 2
+    da_g = dnext_h_dnext_c * (1 - g**2) * i # 3
+
+    dgates = np.hstack((da_i, da_f, da_o, da_g))
+    
+    dx = dgates @ Wx.T # (N, 4H) @ (4H, D) = (N, D)
+    dprev_h = dgates @ Wh.T # (N, 4H) @ (4H, H) = (N, H)
+    dprev_c = dnext_h_dnext_c * f # (N, H) @ (H, H) = (N, H)
+    dWx = x.T @ dgates # (D, N) @ (N, 4H) = (D, 4H)
+    dWh = prev_h.T @ dgates # (H, N) @ (N, 4H) = (H, 4H)
+    db = np.sum(dgates, axis=0)
+    
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -404,7 +432,17 @@ def lstm_forward(x, h0, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, _ = x.shape
+    _, H = h0.shape
+
+    h = np.zeros((N, T, H))
+    c = np.zeros((N, H))
+    cache = [None] * T 
+    for i in range(T):
+      if i == 0:
+        h[:, i, :], c, cache[i] = lstm_step_forward(x[:, i, :], h0, c, Wx, Wh, b)
+      else:
+        h[:, i, :], c, cache[i] = lstm_step_forward(x[:, i, :], h[:, i-1, :], c, Wx, Wh, b)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -435,8 +473,30 @@ def lstm_backward(dh, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N, T, H = dh.shape
+    x = cache[0][0]
+    _, D = x.shape
+    dx = np.zeros((N, T, D))
+    dh0 = np.zeros((N, H))
+    dWx = np.zeros((D, 4 * H))
+    dWh = np.zeros((H, 4 * H))
+    db = np.zeros((4 * H,))
+    dnext_c = np.zeros((N, H))
 
+    for i in range(T-1, -1, -1):
+      if i == T-1:
+        dx[:, i, :], dprev_h, dprev_c, dWx, dWh, db = lstm_step_backward(dh[:, i, :], dnext_c, cache[i])
+        dnext_h = dprev_h
+        dnext_c = dprev_c
+      else:
+        dx[:, i, :], dprev_h, dprev_c, tdWx, tdWh, tdb = lstm_step_backward(dnext_h + dh[:, i, :], dnext_c, cache[i])
+        dWx += tdWx
+        dWh += tdWh
+        db += tdb
+        dnext_h = dprev_h
+        dnext_c = dprev_c
+    
+    dh0 = dprev_h
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
     #                               END OF YOUR CODE                             #
@@ -537,3 +597,4 @@ def temporal_softmax_loss(x, y, mask, verbose=False):
     dx = dx_flat.reshape(N, T, V)
 
     return loss, dx
+
